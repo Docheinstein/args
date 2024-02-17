@@ -28,6 +28,8 @@ parser.addArgument(args.dumpCartridgeInfo, "--cartridge-info", "-i").help("Dump 
 
 if (!parser.parse(argc, argv, 1))
     return 1;
+
+// You can use `args` here
 ```
 
 The produced help message for the example above:
