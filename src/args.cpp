@@ -166,6 +166,7 @@ bool Parser::parse(unsigned int argc, char** argv, unsigned int from) {
     if (helpRequest) {
         helpRequest = false;
         printHelp();
+        return false;
     }
 
     // Check if we are still missing some (mandatory) positional argument
