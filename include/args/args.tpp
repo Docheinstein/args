@@ -16,7 +16,7 @@ ArgumentImpl<T>::ArgumentImpl(T& data, std::vector<std::string> names) :
 }
 
 template <typename T>
-void ArgumentImpl<T>::parse(ArgumentParseFeed& feed) {
+void ArgumentImpl<T>::parse(ArgumentParseContext& feed) {
     if constexpr (std::is_same_v<T, bool>) {
         // Boolean
         this->data = true;
@@ -58,38 +58,39 @@ ArgumentConfig& Parser::addArgument(T& data, Name primaryName, OtherNames... alt
     // Build the names
     std::vector<std::string> names {primaryName, alternativeNames...};
 
-    // Build the argument
-    arguments.push_back(std::make_unique<ArgumentImpl<T>>(data, names));
-    std::unique_ptr<Argument>& arg = arguments.back();
-
-    // Figure out if argument is positional (mandatory) or optional
-    std::optional<bool> isOptional {};
+    // Figure out if argument is positional or an option
+    std::optional<bool> isOption {};
     for (const auto& name : names) {
         if (name.empty()) {
             setupErrors.emplace_back("empty argument name");
             continue;
         }
 
-        bool isNameOptional = name[0] == '-';
+        bool currentIsOption = name[0] == '-';
 
-        if (!isOptional) {
+        if (!isOption) {
             // First name
-            isOptional = isNameOptional;
+            isOption = currentIsOption;
         } else {
             // Alternative names
-            if (*isOptional != isNameOptional) {
+            if (*isOption != currentIsOption) {
                 setupErrors.emplace_back("all argument's names must either be optional or positional");
             }
         }
     }
 
-    if (*isOptional) {
-        // Optional argument
+    // Build the argument
+    arguments.push_back(std::make_unique<ArgumentImpl<T>>(data, names));
+    std::unique_ptr<Argument>& arg = arguments.back();
+
+    if (*isOption) {
+        // Option
         for (const auto& name : names) {
-            optionals.emplace(name, &*arg);
+            options.emplace(name, &*arg);
         }
     } else {
         // Positional argument
+        arg->required_ = true;
         positionals.push_back(&*arg);
     }
 

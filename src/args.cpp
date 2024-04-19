@@ -3,6 +3,7 @@
 #include <complex>
 #include <iostream>
 #include <optional>
+#include <set>
 
 namespace Args {
 
@@ -61,31 +62,36 @@ namespace {
     }
 } // namespace
 
-ArgumentParseFeed::ArgumentParseFeed(const std::vector<std::string>& argv, std::vector<std::string>& errors,
-                                     unsigned int index) :
+ArgumentParseContext::ArgumentParseContext(const std::vector<std::string>& argv, std::vector<std::string>& errors,
+                                           unsigned int index) :
     argv {argv},
     errors {errors},
     index {index} {
 }
 
-bool ArgumentParseFeed::hasNext(unsigned int n) const {
+bool ArgumentParseContext::hasNext(unsigned int n) const {
     return index + n <= argv.size();
 }
 
-const std::string& ArgumentParseFeed::seekNext() const {
+const std::string& ArgumentParseContext::seekNext() const {
     return argv[index];
 }
 
-const std::string& ArgumentParseFeed::popNext() {
+const std::string& ArgumentParseContext::popNext() {
     return argv[index++];
 }
 
-void ArgumentParseFeed::addError(std::string&& error) const {
+void ArgumentParseContext::addError(std::string&& error) const {
     errors.emplace_back(std::move(error));
 }
 
 ArgumentConfig::ArgumentConfig(std::vector<std::string>&& names) :
     names {std::move(names)} {
+}
+
+ArgumentConfig& ArgumentConfig::required(bool req) {
+    required_ = req;
+    return *this;
 }
 
 ArgumentConfig& ArgumentConfig::help(const std::string& h) {
@@ -121,43 +127,42 @@ bool Parser::parse(unsigned int argc, char** argv, unsigned int from) {
         args.emplace_back(argv[i]);
     }
 
-    // Print the help if no argument is given
-    if (args.empty()) {
-        printHelp();
-        return false;
-    }
-
     // Clear any previous parse error
     parseErrors.clear();
 
     // Actually start parse
-    ArgumentParseFeed feed {args, parseErrors};
+    ArgumentParseContext context {args, parseErrors};
+
+    std::set<Argument*> parsedArgs {};
 
     unsigned int positionalIndex = 0;
 
-    while (feed.hasNext() && parseErrors.empty()) {
+    while (context.hasNext() && parseErrors.empty()) {
         // Pop next token
-        const auto& token = feed.seekNext();
+        const auto& token = context.seekNext();
 
-        // Check whether it is an optional argument
-        if (const auto it = optionals.find(token); it != optionals.end()) {
-            // It's a known optional argument
+        // Check whether it is an option
+        if (const auto it = options.find(token); it != options.end()) {
+            // It's a known option
             auto* const arg = it->second;
 
             // Consume the token
-            feed.popNext();
+            context.popNext();
 
             // Verify that there are enough tokens for this argument
-            if (feed.hasNext(arg->numParams())) {
-                arg->parse(feed);
+            if (context.hasNext(arg->numParams())) {
+                arg->parse(context);
+                parsedArgs.emplace(arg);
             } else {
-                feed.addError("missing parameter for argument '" + token + "'");
+                context.addError("missing parameter for argument '" + token + "'");
             }
         } else if (positionalIndex < positionals.size()) {
             // It's a positional argument we still have to read
-            positionals[positionalIndex++]->parse(feed);
+            auto* const arg = positionals[positionalIndex++];
+            arg->parse(context);
+            parsedArgs.emplace(arg);
         } else {
-            // Neither a positional or a known optional: throw an error
+            // Neither a positional or a known option: throw an error
             parseErrors.emplace_back("unknown argument '" + token + "'");
         }
     }
@@ -169,14 +174,14 @@ bool Parser::parse(unsigned int argc, char** argv, unsigned int from) {
         return false;
     }
 
-    // Check if we are still missing some (mandatory) positional argument
-    if (positionalIndex != positionals.size()) {
-        for (unsigned int i = positionalIndex; i < positionals.size(); i++) {
-            parseErrors.emplace_back("missing positional argument '" + positionals[i]->names[0] + "'");
+    // Check if we are missing some (required) argument
+    for (const auto& arg : arguments) {
+        if (arg->required_ && parsedArgs.find(&*arg) == parsedArgs.end()) {
+            parseErrors.emplace_back("missing required argument '" + arg->names[0] + "'");
         }
     }
 
-    // Eventuall dump parse errors
+    // Eventually dump parse errors
     if (!parseErrors.empty()) {
         printErrors(parseErrors);
         return false;
@@ -202,7 +207,7 @@ void Parser::printHelp() const {
         std::optional<std::string> help {};
     };
 
-    struct OptionalEntry {
+    struct OptionEntry {
         std::vector<std::string> names {};
         std::optional<std::string> paramName {};
         std::optional<std::string> help {};
@@ -214,7 +219,7 @@ void Parser::printHelp() const {
         return arg->names[0] == "--help";
     };
 
-    const auto isOptionalArgument = [](const Argument* arg) {
+    const auto isOptionArgument = [](const Argument* arg) {
         return arg->names[0][0] == '-';
     };
 
@@ -226,12 +231,12 @@ void Parser::printHelp() const {
     };
 
     std::vector<UsageEntry> usage {};
-    std::vector<PositionalEntry> positionals {};
-    std::vector<OptionalEntry> optionals {};
+    std::vector<PositionalEntry> positionalEntries {};
+    std::vector<OptionEntry> optionEntries {};
 
     unsigned int argsColWidth = 0;
 
-    // Sort the arguments so that all the positionals precede the optionals (and help is last)
+    // Sort the arguments so that all the positionals precede the options (and help is last)
     std::vector<Argument*> sortedArguments {};
     sortedArguments.resize(arguments.size());
     std::transform(arguments.begin(), arguments.end(), sortedArguments.begin(),
@@ -239,13 +244,13 @@ void Parser::printHelp() const {
                        return &*arg;
                    });
     std::sort(sortedArguments.begin(), sortedArguments.end(),
-              [isOptionalArgument, isHelpArgument](const Argument* a1, const Argument* a2) {
+              [isOptionArgument, isHelpArgument](const Argument* a1, const Argument* a2) {
                   // Help is always last
                   if (isHelpArgument(a1) != isHelpArgument(a2))
                       return isHelpArgument(a2);
 
-                  // The positionals precede the optionals
-                  return isOptionalArgument(a1) < isOptionalArgument(a2);
+                  // The positionals precede the options
+                  return isOptionArgument(a1) < isOptionArgument(a2);
               });
 
     // Iterate all the arguments and fill the data structures
@@ -253,12 +258,15 @@ void Parser::printHelp() const {
         // Find the primary name of this argument (i.e. the longest one)
         const std::string& primaryName = findArgumentLongestName(arg);
 
-        // Find out if this is an optional or a positional argument
-        const bool isOptional = isOptionalArgument(arg);
+        // Find out if this is an option or a positional argument from its name
+        const bool isOption = isOptionArgument(arg);
+
+        // FInd out if it's optional or mandatory
+        const bool isOptional = !arg->required_;
 
         // Compute the parameter name as the primary name without leading dashes upper case
         std::optional<std::string> paramName {};
-        if (isOptional && arg->numParams()) {
+        if (isOption && arg->numParams()) {
             std::string s = primaryName.substr(primaryName.find_first_not_of('-'));
             std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
                 return std::toupper(c);
@@ -269,14 +277,14 @@ void Parser::printHelp() const {
         // Add the usage entry
         usage.push_back({primaryName, paramName, isOptional});
 
-        if (isOptional) {
-            // Add the optional entry
+        if (isOption) {
+            // Add the option
             std::vector<std::string> sortedNames = arg->names;
             std::sort(sortedNames.begin(), sortedNames.end(), std::greater<>());
-            optionals.push_back({sortedNames, paramName, arg->help_});
+            optionEntries.push_back({sortedNames, paramName, arg->help_});
         } else {
             // Add the positional entry
-            positionals.push_back({primaryName, arg->help_});
+            positionalEntries.push_back({primaryName, arg->help_});
         }
 
         // Update argsColWidth with the known maximum of all the arguments' name + param strings
@@ -292,10 +300,10 @@ void Parser::printHelp() const {
     {
         std::stringstream ss {};
         for (unsigned int i = 0; i < usage.size(); i++) {
-            const auto& [name, paramName, optional] = usage[i];
-            ss << (optional ? "[" : "");
+            const auto& [name, paramName, isOptional] = usage[i];
+            ss << (isOptional ? "[" : "");
             ss << name << (paramName ? (" " + *paramName) : "");
-            ss << (optional ? "]" : "");
+            ss << (isOptional ? "]" : "");
             ss << ((i < usage.size() - 1) ? " " : "");
         }
 
@@ -307,7 +315,7 @@ void Parser::printHelp() const {
     // Print positional arguments
     {
         std::cout << "positional arguments:" << std::endl;
-        for (const auto& [name, help] : positionals) {
+        for (const auto& [name, help] : positionalEntries) {
             std::stringstream ss;
             ss << pad << std::left << std::setw(static_cast<int>(argsColWidth)) << name << help.value_or("");
             std::cout << wrap(ss.str(), argsColWidth + pad.size(), MAX_WIDTH) << std::endl;
@@ -315,10 +323,10 @@ void Parser::printHelp() const {
         std::cout << std::endl;
     }
 
-    // Print optional arguments
+    // Print options
     {
-        std::cout << "optional arguments:" << std::endl;
-        for (const auto& [names, paramName, help] : optionals) {
+        std::cout << "options:" << std::endl;
+        for (const auto& [names, paramName, help] : optionEntries) {
             std::stringstream ss1;
             for (unsigned int i = 0; i < names.size(); i++) {
                 ss1 << names[i] << ((i < names.size() - 1) ? ", " : "");

@@ -14,16 +14,19 @@ public:
 
     explicit ArgumentConfig(std::vector<std::string>&& names);
 
+    ArgumentConfig& required(bool req);
     ArgumentConfig& help(const std::string& h);
 
 protected:
     std::vector<std::string> names {};
     std::string help_ {};
+    bool required_ {};
 };
 
-class ArgumentParseFeed {
+class ArgumentParseContext {
 public:
-    ArgumentParseFeed(const std::vector<std::string>& argv, std::vector<std::string>& errors, unsigned int index = 0);
+    ArgumentParseContext(const std::vector<std::string>& argv, std::vector<std::string>& errors,
+                         unsigned int index = 0);
 
     [[nodiscard]] bool hasNext(unsigned int n = 1) const;
     [[nodiscard]] const std::string& seekNext() const;
@@ -40,7 +43,7 @@ class IParsableArgument {
 public:
     virtual ~IParsableArgument() = default;
 
-    virtual void parse(ArgumentParseFeed& feed) = 0;
+    virtual void parse(ArgumentParseContext& context) = 0;
 
     [[nodiscard]] virtual unsigned int numParams() const = 0;
 };
@@ -64,7 +67,7 @@ class ArgumentImpl : public ArgumentImplT<T> {
 public:
     ArgumentImpl(T& data, std::vector<std::string> names);
 
-    void parse(ArgumentParseFeed& feed) override;
+    void parse(ArgumentParseContext& context) override;
 
     [[nodiscard]] unsigned int numParams() const override;
 };
@@ -83,7 +86,7 @@ private:
 
     std::vector<std::unique_ptr<Argument>> arguments {};
     std::vector<Argument*> positionals {};
-    std::unordered_map<std::string, Argument*> optionals {};
+    std::unordered_map<std::string, Argument*> options {};
 
     std::vector<std::string> setupErrors {};
     std::vector<std::string> parseErrors {};

@@ -14,8 +14,13 @@ int main(int argc, char** argv) {
 
     Parser parser;
     parser.addArgument(args.rom, "rom").help("ROM");
+    // parser.addArgument(args.rom, "rom").required(true).help("ROM");
+
     parser.addArgument(args.serial, "--serial", "-s").help("Display serial console");
+    // parser.addArgument(args.serial, "--serial", "-s").required(true).help("Display serial console");
+
     parser.addArgument(args.scaling, "--scaling", "-z").help("Scaling factor");
+
     parser.addArgument(args.dumpCartridgeInfo, "--cartridge-info", "-i").help("Dump cartridge info and quit");
 
     if (!parser.parse(argc, argv, 1))
