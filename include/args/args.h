@@ -28,10 +28,10 @@ public:
     ArgumentParseContext(const std::vector<std::string>& argv, std::vector<std::string>& errors,
                          unsigned int index = 0);
 
-    [[nodiscard]] bool hasNext(unsigned int n = 1) const;
-    [[nodiscard]] const std::string& seekNext() const;
-    const std::string& popNext();
-    void addError(std::string&& error) const;
+    bool has_next(unsigned int n = 1) const;
+    const std::string& seek_next() const;
+    const std::string& pop_next();
+    void add_error(std::string&& error) const;
 
 private:
     const std::vector<std::string>& argv;
@@ -45,7 +45,7 @@ public:
 
     virtual void parse(ArgumentParseContext& context) = 0;
 
-    [[nodiscard]] virtual unsigned int numParams() const = 0;
+    virtual unsigned int num_params() const = 0;
 };
 
 class Argument : public IParsableArgument, public ArgumentConfig {
@@ -69,7 +69,7 @@ public:
 
     void parse(ArgumentParseContext& context) override;
 
-    [[nodiscard]] unsigned int numParams() const override;
+    unsigned int num_params() const override;
 };
 
 class Parser {
@@ -77,21 +77,21 @@ public:
     Parser();
 
     template <typename T, typename Name, typename... OtherNames>
-    ArgumentConfig& addArgument(T& data, Name primaryName, OtherNames... alternativeNames);
+    ArgumentConfig& add_argument(T& data, Name primary_name, OtherNames... alternative_names);
 
     bool parse(unsigned int argc, char** argv, unsigned int from = 0);
 
 private:
-    void printHelp() const;
+    void print_help() const;
 
     std::vector<std::unique_ptr<Argument>> arguments {};
     std::vector<Argument*> positionals {};
     std::unordered_map<std::string, Argument*> options {};
 
-    std::vector<std::string> setupErrors {};
-    std::vector<std::string> parseErrors {};
+    std::vector<std::string> setup_errors {};
+    std::vector<std::string> parse_errors {};
 
-    bool helpRequest {};
+    bool help_request {};
 };
 } // namespace Args
 

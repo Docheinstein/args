@@ -22,10 +22,10 @@ void ArgumentImpl<T>::parse(ArgumentParseContext& feed) {
         this->data = true;
     } else if constexpr (std::is_same_v<T, std::string>) {
         // String
-        this->data = feed.popNext();
+        this->data = feed.pop_next();
     } else if constexpr (std::is_arithmetic_v<T>) {
         // Numbers
-        const std::string& next = feed.popNext();
+        const std::string& next = feed.pop_next();
         const char* cstr = next.c_str();
 
         char* endptr {};
@@ -39,13 +39,13 @@ void ArgumentImpl<T>::parse(ArgumentParseContext& feed) {
         }
 
         if (errno || endptr == cstr) {
-            feed.addError("failed to parse '" + next + "' as number");
+            feed.add_error("failed to parse '" + next + "' as number");
         }
     }
 }
 
 template <typename T>
-unsigned int ArgumentImpl<T>::numParams() const {
+unsigned int ArgumentImpl<T>::num_params() const {
     if constexpr (std::is_same_v<T, bool>) {
         return 0;
     } else {
@@ -54,27 +54,27 @@ unsigned int ArgumentImpl<T>::numParams() const {
 }
 
 template <typename T, typename Name, typename... OtherNames>
-ArgumentConfig& Parser::addArgument(T& data, Name primaryName, OtherNames... alternativeNames) {
+ArgumentConfig& Parser::add_argument(T& data, Name primary_name, OtherNames... alternative_names) {
     // Build the names
-    std::vector<std::string> names {primaryName, alternativeNames...};
+    std::vector<std::string> names {primary_name, alternative_names...};
 
     // Figure out if argument is positional or an option
-    std::optional<bool> isOption {};
+    std::optional<bool> is_option {};
     for (const auto& name : names) {
         if (name.empty()) {
-            setupErrors.emplace_back("empty argument name");
+            setup_errors.emplace_back("empty argument name");
             continue;
         }
 
-        bool currentIsOption = name[0] == '-';
+        bool current_is_option = name[0] == '-';
 
-        if (!isOption) {
+        if (!is_option) {
             // First name
-            isOption = currentIsOption;
+            is_option = current_is_option;
         } else {
             // Alternative names
-            if (*isOption != currentIsOption) {
-                setupErrors.emplace_back("all argument's names must either be optional or positional");
+            if (*is_option != current_is_option) {
+                setup_errors.emplace_back("all argument's names must either be optional or positional");
             }
         }
     }
@@ -83,7 +83,7 @@ ArgumentConfig& Parser::addArgument(T& data, Name primaryName, OtherNames... alt
     arguments.push_back(std::make_unique<ArgumentImpl<T>>(data, names));
     std::unique_ptr<Argument>& arg = arguments.back();
 
-    if (*isOption) {
+    if (*is_option) {
         // Option
         for (const auto& name : names) {
             options.emplace(name, &*arg);

@@ -9,25 +9,26 @@ int main(int argc, char** argv) {
         std::string rom {};
         bool serial {};
         float scaling {};
-        bool dumpCartridgeInfo {};
+        bool dump_cartridge_info {};
     } args;
 
     Parser parser;
-    parser.addArgument(args.rom, "rom").help("ROM");
-    // parser.addArgument(args.rom, "rom").required(true).help("ROM");
+    parser.add_argument(args.rom, "rom").help("ROM");
+    // parser.add_argument(args.rom, "rom").required(true).help("ROM");
 
-    parser.addArgument(args.serial, "--serial", "-s").help("Display serial console");
-    // parser.addArgument(args.serial, "--serial", "-s").required(true).help("Display serial console");
+    parser.add_argument(args.serial, "--serial", "-s").help("Display serial console");
+    // parser.add_argument(args.serial, "--serial", "-s").required(true).help("Display serial console");
 
-    parser.addArgument(args.scaling, "--scaling", "-z").help("Scaling factor");
+    parser.add_argument(args.scaling, "--scaling", "-z").help("Scaling factor");
 
-    parser.addArgument(args.dumpCartridgeInfo, "--cartridge-info", "-i").help("Dump cartridge info and quit");
+    parser.add_argument(args.dump_cartridge_info, "--cartridge-info", "-i").help("Dump cartridge info and quit");
 
-    if (!parser.parse(argc, argv, 1))
+    if (!parser.parse(argc, argv, 1)) {
         return 1;
+    }
 
     std::cout << "rom               = " << args.rom << std::endl;
     std::cout << "serial            = " << args.serial << std::endl;
     std::cout << "scaling           = " << args.scaling << std::endl;
-    std::cout << "dumpCartridgeInfo = " << args.dumpCartridgeInfo << std::endl;
+    std::cout << "dumpCartridgeInfo = " << args.dump_cartridge_info << std::endl;
 }
