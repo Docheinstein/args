@@ -45,7 +45,8 @@ public:
 
     virtual void parse(ArgumentParseContext& context) = 0;
 
-    virtual unsigned int num_params() const = 0;
+    virtual unsigned int num_min_params() const = 0;
+    virtual unsigned int num_max_params() const = 0;
 };
 
 class Argument : public IParsableArgument, public ArgumentConfig {
@@ -69,7 +70,8 @@ public:
 
     void parse(ArgumentParseContext& context) override;
 
-    unsigned int num_params() const override;
+    unsigned int num_min_params() const override;
+    unsigned int num_max_params() const override;
 };
 
 class Parser {

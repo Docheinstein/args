@@ -151,7 +151,7 @@ bool Parser::parse(unsigned int argc, char** argv, unsigned int from) {
             context.pop_next();
 
             // Verify that there are enough tokens for this argument
-            if (context.has_next(arg->num_params())) {
+            if (context.has_next(arg->num_min_params())) {
                 arg->parse(context);
                 parsed_args.emplace(arg);
             } else {
@@ -163,7 +163,7 @@ bool Parser::parse(unsigned int argc, char** argv, unsigned int from) {
             arg->parse(context);
             parsed_args.emplace(arg);
         } else {
-            // Neither a positional or a known option: throw an error
+            // Neither a positional nor a known option: throw an error
             parse_errors.emplace_back("unknown argument '" + token + "'");
         }
     }
@@ -199,8 +199,11 @@ void Parser::print_help() const {
 
     struct UsageEntry {
         std::string name {};
-        std::optional<std::string> param_name {};
         bool optional {};
+        struct {
+            std::optional<std::string> name {};
+            bool optional {};
+        } param;
     };
 
     struct PositionalEntry {
@@ -262,12 +265,13 @@ void Parser::print_help() const {
         // Find out if this is an option or a positional argument from its name
         const bool is_option = is_option_argument(arg);
 
-        // FInd out if it's optional or mandatory
+        // Find out if it's optional or mandatory
         const bool is_optional = !arg->required_;
+        const bool is_param_optional = is_option && arg->num_max_params() > arg->num_min_params();
 
         // Compute the parameter name as the primary name without leading dashes upper case
         std::optional<std::string> param_name {};
-        if (is_option && arg->num_params()) {
+        if (is_option && arg->num_max_params()) {
             std::string s = primary_name.substr(primary_name.find_first_not_of('-'));
             std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
                 return std::toupper(c);
@@ -276,7 +280,7 @@ void Parser::print_help() const {
         }
 
         // Add the usage entry
-        usage.push_back({primary_name, param_name, is_optional});
+        usage.push_back({primary_name, is_optional, {param_name, is_param_optional}});
 
         if (is_option) {
             // Add the option
@@ -301,10 +305,13 @@ void Parser::print_help() const {
     {
         std::stringstream ss {};
         for (unsigned int i = 0; i < usage.size(); i++) {
-            const auto& [name, param_name, is_optional] = usage[i];
-            ss << (is_optional ? "[" : "");
-            ss << name << (param_name ? (" " + *param_name) : "");
-            ss << (is_optional ? "]" : "");
+            const UsageEntry& entry = usage[i];
+            ss << (entry.optional ? "[" : "");
+            ss << entry.name
+               << (entry.param.name
+                       ? (" " + (entry.param.optional ? ("[" + *entry.param.name + "]") : *entry.param.name))
+                       : "");
+            ss << (entry.optional ? "]" : "");
             ss << ((i < usage.size() - 1) ? " " : "");
         }
 

@@ -7,6 +7,7 @@ int main(int argc, char** argv) {
 
     struct {
         std::string rom {};
+        std::optional<std::string> second_rom {};
         bool serial {};
         float scaling {};
         bool dump_cartridge_info {};
@@ -14,10 +15,11 @@ int main(int argc, char** argv) {
 
     Parser parser;
     parser.add_argument(args.rom, "rom").help("ROM");
-    // parser.add_argument(args.rom, "rom").required(true).help("ROM");
+
+    parser.add_argument(args.second_rom, "--second-rom", "-2").help("Second rom");
 
     parser.add_argument(args.serial, "--serial", "-s").help("Display serial console");
-    // parser.add_argument(args.serial, "--serial", "-s").required(true).help("Display serial console");
+    //     parser.add_argument(args.serial, "--serial", "-s").required(true).help("Display serial console");
 
     parser.add_argument(args.scaling, "--scaling", "-z").help("Scaling factor");
 
@@ -27,8 +29,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::cout << "rom               = " << args.rom << std::endl;
-    std::cout << "serial            = " << args.serial << std::endl;
-    std::cout << "scaling           = " << args.scaling << std::endl;
-    std::cout << "dumpCartridgeInfo = " << args.dump_cartridge_info << std::endl;
+    std::cout << "rom                 = " << args.rom << std::endl;
+    std::cout << "second_rom          = " << args.second_rom.value_or("<nullopt>") << std::endl;
+    std::cout << "serial              = " << args.serial << std::endl;
+    std::cout << "scaling             = " << args.scaling << std::endl;
+    std::cout << "dump_cartridge_info = " << args.dump_cartridge_info << std::endl;
 }
